@@ -1,0 +1,116 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib', 'aw_sec'))
+require 'json'
+require 'highline/import'
+require 'optparse'
+
+config_path = File.join(Dir.home, '.awsec', 'awsec.json')
+
+defaults = {}
+defaults[:whitelist] = []
+
+if File.exists? config_path
+  defaults = JSON.load(File.read(config_path))
+else
+  FileUtils.mkdir_p File.join(Dir.home, '.awsec')
+
+  defaults[:aws_key] = ask('AWS Key?')
+  defaults[:aws_secret] = ask('AWS Secret?') { |q| q.echo = "*" }
+  defaults[:aws_region] = ask('Default AWS Region?') { |q| q.default = 'us-east-1' }
+  defaults[:group_names] = ask('Default Security Groups? []')
+  defaults[:port] = ask('Default port?', Integer) { |q| q.default = 22 }
+  
+  choose do |menu|
+    menu.prompt = "Please choose your public IP provider?"
+
+    AwSec::Providers::Register.list.each do |provider|
+      menu.choice(provider[:name]) do
+        defaults[:ip_provider] = provider[:class].class.name
+        provider[:class].configure
+      end
+    end
+  end
+  
+  defaults[:whilelist] = ask('Default comma separated IP whitelist? []')
+  
+  File.write(config_path, JSON.dump(defaults))
+  say('Configuration saved')
+end
+
+defaults = defaults.inject({}){|memo,(k,v)| memo[k.to_sym] = v; memo}
+options = defaults
+optparse = OptionParser.new do |opts|
+	opts.banner = "Usage: awsec [options]"
+
+  opts.on('--clear', 'Clears the configuration') do
+    File.delete(config_path) if File.exists? config_path
+    say('Configuration deleted')
+    exit
+  end
+
+	opts.on('-w', '--whitelist WHITELIST', 'Whitelist IP address (comma separated). You can use subnet masks like /32' ) do |lst|
+		options[:whitelist] = lst.split(',')
+	end
+
+	options[:revoke_all] = true
+	opts.on( '-r', '--[no-]revoke', 'Revoke all access before adding new ones (except the whitelist)' ) do |v|
+    options[:revoke_all] = v
+	end
+  
+  opts.on('--groups GROUPS', 'AWS Security Group names to action (comma separated)') do |v|
+    options[:group_names] = v.split(',')
+  end
+  
+	opts.on( '--aws-region REGION', 'AWS Region.' ) do |v|
+    options[:aws_region] = v
+	end
+
+	opts.on( '-p', '--port PORT', 'Port to open.' ) do |v|
+    say "I'm here with #{v}"
+    options[:port] = v
+	end
+  
+	opts.on( '--ip IP', 'IP to open to. You can use subnet masks like /32' ) do |v|
+    options[:ip] = v
+	end
+
+	opts.on( '--provider PROVIDER', 'Public IP provider' ) do |v|
+    options[:ip_provider] = v
+	end
+  
+  opts.on('-v', '--version', 'AwSec version') do
+    say("AwSec v#{VERSION}")
+    exit
+  end
+
+  opts.on( '-h', '--help', 'Display this screen' ) do
+    puts opts
+    exit
+  end
+  
+  opts.on('--show', 'Shows the configuration') do
+    puts options
+    exit
+  end
+  
+end
+
+optparse.parse(ARGV)
+
+# validate
+if !options.has_key?(:group_names) || options[:group_names] == ''
+  say('No Security Group names found')
+  exit
+end
+
+if !options.has_key?(:ip) || options[:ip] == nil || options[:ip] == ''
+  provider = eval("#{options[:ip_provider]}.new")
+  public_ip = provider.get_public_ip(options)
+  say "Your IP address is #{public_ip}"
+else
+  public_ip = options[:ip]
+end
+
+AwSec::Core.secure(options[:group_names], public_ip, options)
+
