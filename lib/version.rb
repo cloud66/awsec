@@ -13,7 +13,7 @@ module AwSec
 		#  Defines the minor version
 		# PATCH:
 		#  Defines the patch version
-		MAJOR, MINOR, PATCH  = 0, 0, 1
+		MAJOR, MINOR, PATCH  = 0, 1, 1
 
 		#ie. PRERELEASE_MODIFIER = 'beta1'
 		PRERELEASE_MODIFIER = nil
