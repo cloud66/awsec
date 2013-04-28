@@ -5,7 +5,7 @@ Gem::Specification.new do |gem|
   gem.name        = 'awsec'
   gem.version     = AwSec::Version.current
   gem.platform    = Gem::Platform::RUBY
-  gem.date        = '2013-02-25'
+  gem.date        = '2013-04-28'
   gem.summary     = "AWS Security Toolbelt"
   gem.description = "Open and close AWS Security Group from the terminal for more secure operations"
   gem.authors     = ["Cloud 66"]
