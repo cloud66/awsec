@@ -35,7 +35,7 @@ else
   
   defaults[:whilelist] = ask('Default comma separated IP whitelist? []')
   
-  File.write(config_path, JSON.dump(defaults))
+	File.open(config_path, 'w') { |file| file.write(JSON.dump(defaults)) }
   say('Configuration saved')
 end
 

@@ -26,6 +26,7 @@ module AwSec
       puts "Connecting AWS..."
       groups = get_groups(group_names)
       groups.each do |group|
+				next if group.nil?
         puts "Configuring #{group.name}"
         granted_ips = list_ips(group) || []
         puts "Existing IPs with access to port #{port}: #{granted_ips.join(',')}"
@@ -62,7 +63,12 @@ module AwSec
     
     def get_groups(group_names)
       groups = []
-      group_names.each do |group_name|
+			if group_names.is_a? String
+				to_loop = [group_names] 
+			else
+				to_loop = group_names
+			end
+      to_loop.each do |group_name|
         groups << conn.security_groups.get(group_name)
       end
       
@@ -79,7 +85,11 @@ module AwSec
         begin
           group.authorize_port_range(port..port, :cidr_ip => ip)
         rescue => exc
-          puts "Failed #{exc.message}"
+					if exc.message =~ /InvalidPermission.Duplicate/
+						puts "#{ip} already has access" 
+					else
+						puts "Failed #{exc.message}"
+					end
         end
     	end
     end
